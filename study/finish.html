@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Roulecity - Finish</title>
+
+    <link rel="shortcut icon" href="./img/favicon.png">
+    <link rel="stylesheet" href="./css/study.css"> 
+
+    <!-- load libraries -->	
+    <script src="./lib/d3.v4.js"></script>
+    <script src="./lib/jquery-3.5.1.min.js"></script>
+    <script src="./js/datadump.js"></script>
+  
+    <script>
+      var age, gender, colorblind, attention, fun, error_report;
+      
+      function finish(){
+        var p = document.getElementById("bonus");
+        
+        try { // try to read user information
+          age          = parseInt(document.getElementById("age").value);
+          if(age === NaN || age > 100) throw "notAValidNumber";
+          gender       = document.querySelector('input[name="gender"]:checked').value;
+          colorblind   = document.querySelector('input[name="colorblind"]:checked').value;
+          attention    = document.querySelector('input[name="attention"]:checked').value;
+          fun          = document.querySelector('input[name="fun"]:checked').value;
+          error_report = document.getElementById('error_report').value;
+        } catch(e) { // if some info is missing, print warning
+          p.innerHTML = "Please fill in the mandatory (*) questions above.";
+          if(e === "notAValidNumber")
+            p.innerHTML = "Please enter a number < 100 as age.";
+            
+          d3.select('#bonus_modal').style('display', 'block');
+          
+          return; // exit
+        }
+        
+        // save data
+        dump_meta_and_show_bonus(); // reads the score from tmp file and passes it to show_bonus (see below)
+      }
+      
+      function show_bonus(total_score){
+        var url_IDs = window.location.search.split("?")[1];
+        console.log(total_score);
+        
+        var bonus = (max_bonus * total_score).toFixed(2); // score is in [0,1]
+        var total_pay = (max_bonus * total_score + base_fee).toFixed(2);
+        var p = document.getElementById("bonus");
+        
+        // only pay if they are comming from Prolific
+        if(url_IDs !== undefined && url_IDs !== "")
+          p.innerHTML =
+            "Your bonus is <b>£ " + bonus + "</b>.<br>" +
+            "Together with the base fee, you will be paid <b>£ " + total_pay + "</b>.<br>" +
+            "To inform Prolific about your reward, please click this link: <br><br>" +
+            "<a href=https://app.prolific.co/submissions/complete?cc=78205AAF>Prolific completion</a><br><br>";
+        else
+          p.innerHTML =
+            "You seem to have participated without a Prolific ID.<br>" +
+            "Therefore we cannot pay you unfortunately.";
+        
+        p.innerHTML +=
+          "Thank you for participating in this study!<br>" +
+          "Your data has been stored. You may now exit fullscreen (F11) and close the tab.";
+          
+        d3.select('#bonus_modal').style('display', 'block');
+      }
+    </script>
+  </head>
+<body>
+  <div class="container">
+  
+  <h1>Almost done...</h1>
+  To finish up please provide the following information. Please be honest!<br>
+  Your answers will neither directly lead to exclusion nor affect your bonus.
+  <!-- demographics!-->
+  <br>
+  <br>
+  <label for="age">Your age *:</label>
+  <input type="number" id="age" name="age" min="18" max="99">
+  <br>
+  <br>
+  Your gender *:
+  <input type="radio" id="female" name="gender" value="f">
+  <label for="female">female</label>
+  <input type="radio" id="male" name="gender" value="m">
+  <label for="male">male</label>
+  <input type="radio" id="diverse" name="gender" value="d">
+  <label for="diverse">diverse</label>
+  <br>
+  <br>
+  Are you colorblind? *
+  <input type="radio" id="no" name="colorblind" value="no">
+  <label for="no">no</label>
+  <input type="radio" id="yes" name="colorblind" value="yes">
+  <label for="yes">yes</label>
+  <br>
+  <br>
+  How attentive have you been during the experiment? *
+  <input type="radio" id="little" name="attention" value="1">
+  <label for="little">little</label>
+  <input type="radio" id="medium" name="attention" value="2">
+  <label for="medium">medium</label>
+  <input type="radio" id="very" name="attention" value="3">
+  <label for="very">very</label>
+  <br>
+  <br>
+  How much fun did you have doing the experiment? *
+  <input type="radio" id="fun1" name="fun" value="1">
+  <label for="fun1">little</label>
+  <input type="radio" id="fun2" name="fun" value="2">
+  <label for="fun2">medium</label>
+  <input type="radio" id="fun3" name="fun" value="3">
+  <label for="fun3">a lot</label>
+  <br>
+  <br>
+  
+  
+  <h2>Feedback</h2>
+  Below you find a textfield for feedback.<br>
+  If anything weird occurred to you (like a logical problem or a bug), please report it.<br>
+  Also, if you have any questions about the study, anything you don't understand, feel free to ask!<br>
+  Your comments will not affect your bonus.<br>
+  <br>
+  
+  <textarea id="error_report" name="error_report" rows="4" cols="50">
+  </textarea>
+  <br>
+  
+  <br>
+  <button type="submit" onclick="finish();">Finish</button>
+  <br>
+  
+  <div id="bonus_modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="d3.select('#bonus_modal').style('display', 'none');">&times;</span>
+      <p id="bonus"></p>
+    </div>
+  </div>
+  
+</div>
+</body>    

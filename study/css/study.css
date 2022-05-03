@@ -1,0 +1,130 @@
+.question {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+svg {
+  border: 2px solid #eee;
+  vertical-align: top;
+}
+
+.roulette {
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+.node circle {
+  fill: #eee;
+  stroke: #aaf;
+  stroke-width: 2px;
+  position: relative;
+}
+
+.node text {
+  font: 12px sans-serif;
+}
+
+svg text {
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+}
+svg text::selection {
+    background: none;
+}
+
+.link {
+  fill: none;
+  stroke: #bbb;
+  stroke-width: 2px;
+}
+
+/*
+.lateral {
+  stroke: #f00;
+}
+*/
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    height:100%;
+}
+
+figcaption {
+   font-size: 7px;
+}
+
+h1, h2, h3 {
+  color: #007;
+}
+
+button {
+  background-color: #007;
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+}
+
+body {
+  font: 15px sans-serif;
+}
+
+.tut_div {
+  display: none;
+  background-color: #ddf;
+  padding: 20px;
+}
+
+#bars {
+  display: none;
+}
+
+#quiz {
+  display: none;
+}
+
+.counter {
+  font-weight: bold;
+  font-size: 20px;
+  fill: #00f;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  left: 0;
+  top: 0;
+}
+
+.modal-content {
+  background-color: #ddf;
+  margin: 15% auto; /* 15% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 600px;
+  text-align: center;
+}
+
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}

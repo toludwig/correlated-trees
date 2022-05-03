@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Roulecity - Instructions</title>
+  
+  <link rel="shortcut icon" href="./img/favicon.png">
+  <link rel="stylesheet" href="./css/study.css"> 
+
+  <!-- load libraries -->	
+  <script src="./lib/d3.v4.js"></script>
+  <script src="./lib/jquery-3.5.1.min.js"></script>
+  
+  <script src="./js/roulecity.js"></script>
+  <script src="./js/datadump.js"></script>
+  
+  <!-- draw examples -->
+  <script>
+    var section = 0; // which section of the instruction to show
+    
+    window.onload = function(){
+      // examples of the shape
+      for(var h = 2; h < 5; h++)
+        for(var b = 2; b < 5; b++)
+          if(h === 2 && b < 3 || h > 2)
+            roulette(d3.select("#h" + h + "b" + b), 100, 100, h, b, 10); // TODO width
+      
+      // examples of the correlation
+      mode = "demo";
+      city_list = demo_city_list(0);
+      city_max = 4;
+      city_no = 0;
+      
+      var svg = d3.select("#city1");
+      init_svg(svg);
+      init_city(svg, true);
+      
+      svg = d3.select("#city2");
+      init_svg(svg);
+      init_city(svg, true);
+      
+      svg = d3.select("#city3");
+      init_svg(svg);
+      init_city(svg, true);
+      
+      svg = d3.select("#city4");
+      init_svg(svg);
+      init_city(svg, true);
+    };
+  
+    function next(){
+      //if(section == 0)
+      //  requestFullScreen();
+        
+      if(section == 4)
+        document.getElementById("instruct").style.display = "none";
+        
+      if(section == 5)
+        check();
+      else {
+        document.getElementById('div' + section).style.display='none';
+        document.getElementById('div' + ++section).style.display='block';
+        window.scrollTo(0,0);
+      }
+    }
+    
+    function back(){
+      if(section == 5)
+        document.getElementById("instruct").style.display = "block";
+        
+      if(section == 0)
+        window.location.href = './index.html';
+      else {
+        document.getElementById('div' + section).style.display='none';
+        var div=document.getElementById('div' + --section);
+        div.style.display='block'; div.scrollIntoView();
+      }
+    }
+    
+    // for checking user answers
+    function check(){
+      var q1 = document.getElementsByName('q1');
+      var q3 = document.getElementsByName('q3');
+      
+      var a1 = false;
+      var a3 = false;
+      
+      if(!q1[0].checked && !q1[1].checked && !q1[2].checked && q1[3].checked)
+        a1 = true;
+      
+      if(q3[2].checked)              
+        a3 = true;
+      
+      if(a1 && a3){
+        // store how often compcheck was failed and advance to tutorial
+        dump_tmp_and_advance("compcheck1_failed", compcheck1_failed);
+      } else{
+        compcheck1_failed += 1;
+        document.getElementById("quiz_modal").style.display = "block";
+      }
+    }
+    
+    function nextHTML(){
+      window.location.href = './tutorial.html' + window.location.search;
+    }
+    </script>
+
+  <style>
+    body {
+      font: 15px sans-serif;
+    }
+    
+    .node text {
+      font: 12px sans-serif;
+    }
+  
+    .question {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+  </style>
+</head>
+
+<body> <!-- onclick="document.getElementById('quiz_modal').style.display = 'none';"> -->
+  <div class="container">
+    
+  <h1>Roulecity - Instructions</h1>
+  <p id="instruct" style="font-style:italic">
+    Please read these instructions carefully! You will be tested on them!
+  </p>
+  <br>
+  
+  <div id="div0">
+    Before we start, we strongly recommend you to switch to fullscreen mode.<br>
+    This is especially useful if you have a small screen (14" or smaller) because the graphics take space.<br>
+    Please enter fullscreen mode now by <b>pressing (Fn) F11</b> on your keyboard.<br>
+    At the end of the study you can exit the fullscreen using the same key.
+  </div>
+  
+  <div id="div1" style="display:none;">
+    <div style="padding-right: 10px; float:left;">
+      <img src="./img/rocket.png" width="80">
+      <figcaption>Icon from www.freepik.com</figcaption>
+    </div>
+    Imagine you are a space engineer traveling in your spaceship.<br>
+    You are called to a foreign planet that needs your help.<br>
+    On the planet, there are many cities which all have a power outage.<br>
+    The most important thing is to keep their infrastructure alive.<br>
+    To do so, you will visit the cities and collect energy from emergency generators.<br>
+    Each city is divided into a variable number of districts, looking a bit like a roulette wheel:<br><br>
+    <div id="hb">
+      <svg id="h2b2" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h3b2" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h3b3" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h3b4" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h4b2" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h4b3" width="100" height="100"> <g class="roulette"></g> </svg>
+      <svg id="h4b4" width="100" height="100"> <g class="roulette"></g> </svg>
+    </div>
+  </div>    
+  
+  <div id="div2" style="display:none;">
+    <h2>Streets, walls, and hubs</h2>
+    Below you see an example city in more detail.<br>
+    The districts are separated from one another by <b>black walls</b>.<br>
+    One can only pass these walls using the <b>grey streets</b>.<br>
+    <br>
+    Your spaceship lands on the grey center square: the central station.<br>
+    Your task is to collect energium from the <b>red hubs</b> and bring it to the central station.<br>
+    The hubs are like emergency generators charging energium units, which are like batteries.<br>
+    You want as many energium units as possible, however, there is a limit on how many are available at each hub.<br>
+    The numbers tell you <b>how many units of energium</b> you can get at the hub each time.<br>
+    This is also indicated by how red they are (white: low energium, dark red: high energium).<br>
+    <br>
+    <br>
+    <svg id="city1" width="400" height="400">
+      <g class="roulette"></g>
+      <g class="tree"></g>
+      <g class="counter"></g>
+    </svg>
+  </div>    
+    
+  <div id="div3" style="display:none;">
+    <h2>Hubs</h2>
+    Everyone needs energium units, so there are many hubs along the streets all over the city.<br>
+    Some hubs are more effective than others in generating power. There is <b>no</b> regularity in them!<br>
+    In particular, nodes that are connected, will not necessarily have similar rewards!<br>
+    <br>
+    <br>
+    <svg id="city2" width="400" height="400">
+      <g class="roulette"></g>
+      <g class="tree"></g>
+      <g class="counter"></g>
+    </svg>
+  </div>
+    
+  <div id="div4" style="display:none;">
+    <h2>Your task</h2>
+    In the game, you will not see any numbers initially, so you will not know where the best hubs are.<br>
+    Each day you will explore the city and collect energium on the way.<br>
+    <b>Your task will be to find as much energium as possible in each city.</b><br>
+    Overnight the hubs replenish their energium units, so when you visit the same hub again,<br>
+    it will result in largely the same outcomes, but with minor variations.<br>
+    You will see how this works later in the tutorial.<br>
+    <br>
+    Below you see two more city maps just to give you an overview.<br>
+    Note that there is no structure in how much energium you get at the hubs.<br>
+    <br>
+    Also, <b>the maximum amount of energium you can get from a hub<br>
+    will differ between cities</b>, so you will never know for sure if you have found the best hub.<br>
+    <br>
+    <br>
+    
+    <svg id="city3" width="600" height="600">
+      <g class="roulette"></g>
+      <g class="tree"></g>
+      <g class="counter"></g>
+    </svg>
+    
+    <svg id="city4" width="600" height="600">
+      <g class="roulette"></g>
+      <g class="tree"></g>
+      <g class="counter"></g>
+    </svg>
+  </div>
+  
+  <div id="div5" style="display:none;">
+    <h2>Quiz</h2>
+    Please answer the following questions.
+    Only if you get each answer correct, you can go on.<br>
+    
+    <div class="question">
+      <img src="img/example_similarity.png"
+           alt="if you cannot see this image, just tick option 2 and 4"
+           width="300" height="300"><br>
+      Which of the following hubs are similar to each other?</b><br>
+      <input type="checkbox" id="q1a" name="q1" value="1">
+      <label for="q1a">B and A</label><br>
+      <input type="checkbox" id="q1b" name="q1" value="2">
+      <label for="q1b">B and C</label><br>
+      <input type="checkbox" id="q1c" name="q1" value="3">
+      <label for="q1c">E and D</label><br>
+      <input type="checkbox" id="q1d" name="q1" value="4">
+      <label for="q1d">none of them are similar</label><br>
+    </div>
+    
+    <div class="question">
+      <b>What is the maximum number of energium units you can get at a hub?</b><br>
+      <input type="radio" id="q3a" name="q3" value="1">
+      <label for="q3a">90</label><br>
+      <input type="radio" id="q3b" name="q3" value="2">
+      <label for="q3b">100</label><br>
+      <input type="radio" id="q3c" name="q3" value="3">
+      <label for="q3c">you cannot know, depends on the city</label><br>
+    </div>
+
+  </div>
+    
+  <br>
+  <button onclick="back();">Back</button>
+  <button id="next" onclick="next()">Next</button>
+  <br>
+  </div>
+  
+  <!-- modal for failed comprehension check -->
+  <div id="quiz_modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="d3.select('#quiz_modal').style('display', 'none');">&times;</span>
+      <p>Some of the answers are missing or not correct, please try again.</p>
+    </div>
+  </div>
+  
+</body>

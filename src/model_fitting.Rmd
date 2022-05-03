@@ -1,0 +1,433 @@
+---
+title: "Model fitting"
+author: "Tobias Ludwig"
+date: "06/01/2022"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lmerTest)
+library(texreg)
+library(extRemes) # for likelihood ratio test
+
+library(sjPlot)
+library(latex2exp)
+library(patchwork)
+```
+
+# Model fitting
+Model fitting was performed with respect to:
+
+- $\alpha$: length scale of diffusion kernel (how much generalization?)
+- $\beta$: UCB weight (directed exploration)
+- $\gamma$: look-ahead factor (how much planning?)
+- $\tau$: undirected (random) exploration
+
+We have fit these parameters on a subject level, ignoring the different tree sizes within subject.
+This way, there are 3 heights * 3 breadths * 15 walks = 135 trials per subject to fit 4 parameters.
+In the bottom of this file, there are some supplementary analyses wrt how tree size influences the fits.
+
+## Subject fits
+To reproduce and create the csv of the best fits,
+run `Rscript fit_subject.R SUBJECT_ID RECOV_FLAG` for each subject (`RECOV_FLAG = TRUE` for recovering data)
+or directly use the corresponding shell script for either a SLURM or a PBS based cluster.
+
+```{r}
+df_fits <- read.csv("../fit/all_DE_subject.csv")
+#df_fits <- read.csv("../fit/all_DE_recov_subject.csv")
+#df_fits <- read.csv("../fit/all_DE_alpha0_subject.csv")
+#df_fits <- read.csv("../fit/all_DE_subject.csv")
+# exclude low-performing subjects
+ids_lowperf <- c(36, 46, 59, 80, 86, 96, 100, 101)
+df_fits <- df_fits %>% filter(!subjID %in% ids_lowperf)
+
+df_fits$A <- as.factor(df_fits$A)
+nrow(df_fits)
+```
+
+### Log likelihoods
+```{r}
+ggplot(df_fits, aes(x = nLL)) +
+  geom_histogram(position="identity", alpha=.5, bins = 30) +
+  labs(title = "negative log likelihoods")
+```
+
+```{r lm_subject}
+df_fits <- df_fits %>% # TODO scale here???
+  mutate(alpha_scaled = scale(alpha),
+         beta_scaled = scale(beta),
+         gamma_scaled = scale(gamma),
+         tau_scaled = scale(tau))
+lm_subject <- lm(nLL ~ 1 + A + (alpha_scaled*A) + (beta_scaled*A) + (gamma_scaled*A) + (tau_scaled*A), # + (alpha*tau),
+                 df_fits)
+plot_model(lm_subject, bpe = "mean", bpe.style = "dot", bpe.color='black', show.values = TRUE,
+           vline.color = 'grey', colors = "black", value.offset = .5, value.size = 3) +
+  theme_classic()
+```
+
+
+
+### Best parameters
+```{r mean_fits}
+df_fits_m <- df_fits %>%
+  group_by(A) %>%
+  summarise(alpha_m = mean(alpha), alpha_se = sd(alpha) / sqrt(n()),
+            beta_m  = mean(beta),  beta_se  = sd(beta)  / sqrt(n()),
+            gamma_m = mean(gamma), gamma_se = sd(gamma) / sqrt(n()),
+            tau_m   = mean(tau),   tau_se   = sd(tau)   / sqrt(n()))
+```
+
+
+### Generalization and discounting
+```{r alpha_gamma_plane, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(df_fits, aes(x=alpha, y=gamma)) +
+  geom_point(aes(color=A)) +
+  labs(title="Generalization and discounting",
+       x=TeX("$\\alpha$"), y=TeX("$\\gamma$")) +
+  scale_x_continuous(trans="log10", expand=c(0,0)) +
+  scale_y_continuous(trans="log10", expand=c(0,0)) +
+  theme_bw()
+```
+```{r}
+df_tmp <- df_fits %>% filter(A == 1)
+cor(df_tmp$alpha, df_tmp$gamma)
+cor(df_tmp$alpha, df_tmp$beta)
+cor(df_tmp$alpha, df_tmp$tau)
+cor(df_tmp$beta,  df_tmp$tau)
+```
+
+
+
+**People make use of the structure**
+A=1 trees are better fit by higher $\alpha$ than A=0 trees.
+
+```{r fig.width=2.5, fig.height=2, echo=FALSE}
+p <- t.test(alpha~A, df_fits)$p.value
+
+p_alpha <- ggplot(df_fits_m, aes(x=A, y=alpha_m)) +
+  geom_bar(stat="identity", aes(fill=A)) +
+  geom_errorbar(aes(ymin=alpha_m-alpha_se, ymax=alpha_m+alpha_se), width=.1) +
+  labs(title = TeX(paste0("$\\alpha_{A=0} < \\alpha_{A=1}, \\; p=", formatC(p), "$")),
+       y = TeX("$\\alpha$"), x = element_blank()) +
+  theme_bw() + theme(legend.position="none", axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  geom_point(aes(x = A, y = alpha), data = df_fits, position = position_jitter(width = .3), size = .1)
+p_alpha
+```
+
+**People need to look further ahead in unstructured trees**
+
+```{r fig.width=2.5, fig.height=2, echo=FALSE}
+p <- t.test(gamma~A, df_fits)$p.value
+p <- t.test(df_fits$gamma, mu=1)$p.value
+
+p_gamma <- ggplot(df_fits_m, aes(x=A, y=gamma_m, fill=A)) +
+  geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=gamma_m-gamma_se, ymax=gamma_m+gamma_se), width=.1) +
+  labs(title = TeX(paste0("$\\gamma$, not signif.")), y = TeX("$\\gamma")) +
+  theme_bw() + theme(legend.position="none") +
+  geom_point(aes(x = A, y = gamma), data = df_fits, position = position_jitter(width = .3), size = .1)
+p_gamma
+```
+
+### (Un)directed Exploration
+
+```{r beta_tau_plane, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(df_fits, aes(x=beta, y=tau)) +
+  geom_point(aes(color=A)) +
+  labs(title="(Un)directed Exploration",
+       x=TeX("$\\beta$"), y=TeX("$\\tau$")) +
+  scale_x_log10() + scale_y_log10() +
+  theme_bw()
+```
+
+
+```{r fig.width=2.5, fig.height=2, echo=FALSE}
+p <- t.test(beta~A, df_fits)$p.value
+
+p_beta <- ggplot(df_fits_m, aes(x=A, y=beta_m)) +
+  geom_bar(stat="identity", aes(fill=A)) +
+  geom_errorbar(aes(ymin=beta_m-beta_se, ymax=beta_m+beta_se), width=.1) +
+  labs(title = TeX("$\\beta$"), y = TeX("$\\beta$")) +
+  theme_bw() + theme(legend.position="none") +
+  geom_point(aes(x = A, y = beta), data = df_fits, position = position_jitter(width = .3), size = .1)
+p_beta
+```
+
+
+```{r fig.width=2.5, fig.height=2, echo=FALSE}
+p <- t.test(tau~A, df_fits)$p.value
+
+p_tau <- ggplot(df_fits_m, aes(x=A, y=tau_m)) +
+  geom_bar(stat="identity", aes(fill=A)) +
+  geom_errorbar(aes(ymin=tau_m-tau_se, ymax=tau_m+tau_se), width=.1) +
+  labs(title = TeX(paste0("$\\tau_{A=0} > \\tau_{A=1}, \\; p=", formatC(p), "$")), y = TeX("$\\tau$")) +
+  theme_bw() + theme(legend.position="none") +
+  geom_point(aes(x = A, y = tau), data = df_fits, position = position_jitter(width = .3), size = .1)
+p_tau
+```
+
+## All effects
+
+```{r fig.width=10, fig.height=2.5}
+p_alpha | p_beta | p_gamma | p_tau
+```
+
+
+```{r fig.width=10, fig.height=2.5}
+p_alpha | p_beta | p_gamma | p_tau
+```
+
+All parameters in a single plot on log scale:
+```{r}
+df_fits_mean <- df_fits_m %>%
+  dplyr::select("A", "alpha_m", "beta_m", "gamma_m", "tau_m") %>%
+  pivot_longer(c("alpha_m", "beta_m", "gamma_m", "tau_m"),
+               names_to = c("param", "ignore"), names_sep = "_", values_to = "mean") %>%
+  dplyr::select(-ignore)
+df_fits_se <- df_fits_m %>%
+  dplyr::select("A", "alpha_se", "beta_se", "gamma_se", "tau_se") %>%
+  pivot_longer(c("alpha_se", "beta_se", "gamma_se", "tau_se"),
+               names_to = c("param", "ignore"), names_sep = "_", values_to = "se") %>%
+  dplyr::select(-ignore)
+df_fits_stats <- left_join(df_fits_mean, df_fits_se, by = c("A", "param"))
+
+ggplot(df_fits_stats, aes(x = param, y = mean, group = A)) +
+  geom_bar(stat="identity", aes(fill = A), position = "dodge") +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1, position = position_dodge(.9)) +
+  scale_y_log10()
+  #labs(title = TeX(paste0("$\\tau_{A=0} > \\tau_{A=1}, \\; p=", formatC(p), "$")), y = TeX("$\\tau$")) +
+  #theme(legend.position="none") + theme_bw()
+```
+
+
+Stats again:
+```{r}
+t.test(alpha~A, df_fits)
+t.test(beta ~A, df_fits)
+# t.test(gamma~A, df_fits)
+# t.test(tau  ~A, df_fits)
+wilcox.test(alpha~A, df_fits)
+wilcox.test(beta ~A, df_fits)
+wilcox.test(gamma~A, df_fits)
+wilcox.test(tau  ~A, df_fits)
+
+t.test(gamma~1, mu=1, df_fits %>% filter(A==0)) 
+```
+
+
+
+# $R^2$ of full and lesioned models
+
+$$
+R^2 = 1 - \frac{BIC(model)}{BIC(random)}\\
+BIC = -2 LL + k \cdot \log(n)\\
+k = \# params = 4 \text{, or 0 for random}\\
+n = \# observations = 15\cdot 9 = 135
+$$
+The random model picks a path at random and each trial is independent.
+Therefore, the chance that a choice by the random agent matches a choice of the subject is $1 / \#paths = 1/B^{H-1}$.
+$$
+\log \mathcal{L}_{\mathrm{rand}}
+= \log \prod_{B=2}^4 \prod_{H=2}^4 \bigg(\frac{1}{B^{H-1}}\bigg)^{15}
+= \sum_{B=2}^4 \sum_{H=2}^4 -15 (H-1) \log B
+= -286.02
+$$
+```{r compute_all_r2}
+ll <- 0; for(b in 2:4) for(h in 2:4) ll <- ll - 15 * log(b)*(h-1)
+bic_random <- -2*ll
+
+compute_r2 <- function(nLL, k){ 1 - (2*nLL + k*log(135)) / bic_random }
+#compute_r2 <- function(nLL, k){ 1 - (2*nLL + k*2) / bic_random } # AIC!
+
+df_full <- read.csv("../fit/all_DE_subject.csv")
+df_r2 <- tibble(subjID = df_full$subjID, A = df_full$A)
+df_r2$full <- compute_r2(df_full$nLL, 4) # full model has all 4 parameters
+
+df_alpha0  <- read.csv("../fit/all_DE_alpha0_subject.csv")
+df_beta0   <- read.csv("../fit/all_DE_beta0_subject.csv")
+df_gamma0  <- read.csv("../fit/all_DE_gamma0_subject.csv")
+df_gamma1  <- read.csv("../fit/all_DE_gamma1_subject.csv")
+df_optimal <- read.csv("../fit/all_DE_optimal_subject.csv")
+
+# TODO filter outliers (?)
+# df_alpha0 <- df_alpha0 %>% filter(nLL < mean(nLL) + 3*sd(nLL))
+# df_beta0  <- df_beta0  %>% filter( < mean(beta) + 3*sd(beta))
+
+df_alpha0 <- df_alpha0 %>% mutate(alpha0 = compute_r2(nLL, 3))
+df_beta0  <- df_beta0  %>% mutate(beta0  = compute_r2(nLL, 3))
+df_gamma0 <- df_gamma0 %>% mutate(gamma0 = compute_r2(nLL, 3))
+df_gamma1 <- df_gamma1 %>% mutate(gamma1 = compute_r2(nLL, 3))
+df_optimal <- df_optimal %>% mutate(optimal = compute_r2(nLL, 2))
+
+df_r2 <- left_join(df_r2, df_alpha0 %>% dplyr::select(subjID, alpha0), by = "subjID")
+df_r2 <- left_join(df_r2, df_beta0  %>% dplyr::select(subjID, beta0),  by = "subjID")
+df_r2 <- left_join(df_r2, df_gamma0 %>% dplyr::select(subjID, gamma0), by = "subjID")
+df_r2 <- left_join(df_r2, df_gamma1 %>% dplyr::select(subjID, gamma1), by = "subjID")
+df_r2 <- left_join(df_r2, df_optimal %>% dplyr::select(subjID, optimal), by = "subjID")
+
+df_params <- df_full
+df_params <- left_join(df_params, df_alpha0, by = c("subjID","A"), suffix = c("", ".alpha0"))
+df_params <- left_join(df_params, df_beta0 , by = c("subjID","A"), suffix = c("", ".beta0"))
+df_params <- left_join(df_params, df_gamma0, by = c("subjID","A"), suffix = c("", ".gamma0"))
+df_params <- left_join(df_params, df_gamma1, by = c("subjID","A"), suffix = c("", ".gamma1"))
+df_params <- left_join(df_params, df_optimal, by = c("subjID","A"), suffix = c("", ".optimal"))
+```
+
+
+
+```{r filter_r2}
+# exclude low-performing subjects
+ids_lowperf <- c(36, 46, 59, 80, 86, 96, 100, 101)
+df_r2 <- df_r2 %>%
+  filter(!subjID %in% ids_lowperf)
+
+df_params <- df_params %>%
+  filter(!subjID %in% ids_lowperf)
+# TODO filter outliers???
+  # filter(alpha <= mean(alpha) + 3*sd(alpha),
+  #        beta  <= mean(beta)  + 3*sd(beta),
+  #        gamma <= mean(gamma) + 3*sd(gamma),
+  #        tau   <= mean(tau)   + 3*sd(tau))
+
+df_r2$A <- as.factor(df_r2$A)
+df_params$A <- as.factor(df_params$A)
+```
+
+
+```{r correlations_r2, fig.width=4, fig.height=4}
+# sanity check: are measures correlated across subjects?
+print(cor(df_r2$alpha0, df_r2$full))
+print(cor(df_r2$beta0,  df_r2$full))
+print(cor(df_r2$gamma0, df_r2$full))
+print(cor(df_r2$gamma1, df_r2$full))
+
+ggplot(df_r2) +
+  geom_point(aes(x = alpha0, y = full, color = A))
+
+ggplot(df_params) +
+  #geom_point(aes(x = alpha, y = alpha.beta0)) +
+  geom_point(aes(x = beta, y = beta.alpha0)) +
+  #geom_point(aes(x = tau,  y = tau.beta0)) +
+  scale_x_log10() + scale_y_log10()
+```
+
+
+```{r r2_alpha, fig.width=5, fig.height=3}
+# wide to long
+df_r2 <- df_r2 %>% pivot_longer(c("full", "alpha0", "beta0", "gamma0", "gamma1", "optimal"),
+                                names_to = "lesion", values_to = "r2")
+
+write.csv(df_r2, "../fit/all_r2.csv", row.names = FALSE)
+
+df_r2_summary <- df_r2 %>%
+  group_by(A, lesion) %>%
+  summarise(r2_m = mean(r2, na.rm = T), r2_se = sd(r2, na.rm = T)/sqrt(n()))
+
+# one R^2 per subject
+ggplot(df_r2_summary, aes(x = lesion, fill = A)) +
+  geom_bar(aes(y = r2_m), stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = r2_m - r2_se, ymax = r2_m + r2_se), position = position_dodge(.9), width = .2, size = .3) +
+  labs(y = TeX("$R^2$"), x = "")
+
+# ggplot(df_r2, aes(x = lesion, color = A)) +
+#   geom_point(aes(y = r2), position = position_jitterdodge(dodge.width = .9, jitter.width = .2))
+```
+
+
+## Optimal agent
+An optimal agent would be a GP that has its kernel length scale aligned with the true one, $\alpha = A$.
+This agent would always take the whole path into account ($\gamma = 1$).
+But what is the optimal $\beta$ and $\tau$ for each tree?
+
+We ran some simulations on the trees used in the study.
+Each tree was simulated $nsims=10$ times by a GP agent and a BMT agent,
+each searching over different $\beta$s.
+
+
+
+## Check significance
+```{r ttest}
+df_r2_A1 <- df_r2 %>% filter(A == 1)
+p <- matrix(nrow = 2, ncol = 4)
+p[1,1] <- t.test(r2 ~ lesion, df_r2_A1 %>% filter(lesion %in% c("full", "alpha0")), paired=TRUE)$p.value
+p[1,2] <- t.test(r2 ~ lesion, df_r2_A1 %>% filter(lesion %in% c("full", "beta0")),  paired=TRUE)$p.value
+p[1,3] <- t.test(r2 ~ lesion, df_r2_A1 %>% filter(lesion %in% c("full", "gamma0")), paired=TRUE)$p.value
+p[1,4] <- t.test(r2 ~ lesion, df_r2_A1 %>% filter(lesion %in% c("full", "gamma1")), paired=TRUE)$p.value
+
+df_r2_A0 <- df_r2 %>% filter(A == 0)
+p[2,1] <- t.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "alpha0")), paired=TRUE)$p.value
+p[2,2] <- t.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "beta0")),  paired=TRUE)$p.value
+p[2,3] <- t.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "gamma0")), paired=TRUE)$p.value
+p[2,4] <- t.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "gamma1")), paired=TRUE)$p.value
+p
+
+```
+```{r}
+t.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "gamma1")), paired=TRUE)
+#wilcox.test(r2 ~ lesion, df_r2_A0 %>% filter(lesion %in% c("full", "gamma1")), paired=TRUE)
+```
+
+### Likelihood ratio test
+Likelihood ratio can be tested between two models, but does it make sense to do this on a participant level?
+One would then have to consider the distribution of $p$ values.
+Instead we could compare the average nLLs between two models...
+
+```{r likelihood-ratio-test}
+lr.test(mean(df_alpha0$nLL), mean(df_full$nLL), df = 1)
+```
+
+# Supplementary analyses
+
+## Tree fits
+So far we only looked at parameter fits on the subject level, ignoring the different tree sizes.
+Here, we fitted parameters for each tree size, ignoring subjects.
+
+```{r fits_by_tree}
+df_tree_fits <- read.csv("../fit/all_DE_tree.csv")
+df_tree_fits$A <- as.factor(df_tree_fits$A)
+df_tree_fits$B <- as.factor(df_tree_fits$B)
+df_tree_fits$H <- as.factor(df_tree_fits$H)
+```
+
+We first look at exploration parameters:
+```{r, fig.width=5, fig.height=4, echo=FALSE}
+ggplot(df_tree_fits, aes(x=beta, y=tau)) +
+  geom_point(aes(color=A, shape=B, size=H)) +
+  labs(title="(Un)directed Exploration",
+       x=TeX("$\\beta$"), y=TeX("$\\tau$")) +
+  scale_x_log10() + scale_y_log10() +
+  theme_bw()
+```
+The larger the trees (mainly the higher, $H$), the more random and the less directed exploration.
+However, we cannot prove this statistically, because there are too little data points.
+```{r}
+#m_beta <- lm(beta ~ H + B + H*B, df_tree_fits)
+#m_tau <- lm(tau ~ H + B + H*B, df_tree_fits)
+#summary(m_beta)
+#summary(m_tau)
+```
+
+Next, alpha and gamma.
+NB Gamma should not be interpreted because it did not converge in the fitting! 
+```{r, fig.width=5, fig.height=4, echo=FALSE}
+ggplot(df_tree_fits, aes(x=alpha, y=gamma)) +
+  geom_point(aes(color=A, shape=B, size=H)) +
+  labs(title="Generalization and Planning",
+       x=TeX("$\\alpha$"), y=TeX("$\\gamma$")) +
+  scale_x_log10() + scale_y_log10() +
+  theme_bw()
+```
+Alpha tends to be smaller for A=0, which makes sense.
+Again, gamma should not be interpreted here.
+
+## Tree-subject fits
+It would be nice to look at the tree fits within subject,
+however, this is currently not possible, because there would be only 1 city (= 15 walks) per condition
+which is far too few data points for fitting the full model.
+TODO We might want to fit a lesioned model (e.g. the optimal one, with alpha = A and gamma = 1)
+and / or group over one of the tree size dimensions (H or B), so to get 3 times as many data points.

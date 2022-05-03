@@ -1,0 +1,324 @@
+---
+title: "paper_plots"
+author: "Tobias Ludwig"
+date: "26/11/2021"
+output:
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+
+library(tidyverse)
+# graphics
+library(patchwork)
+library(ggsignif)
+library(latex2exp)
+# testing
+library(brms)
+library(lme4)
+library(lmerTest)
+library(texreg)
+library(sjPlot)
+library(performance)
+
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+# Demographics
+```{r}
+df_demo <- read.csv("../data/prolific2/prolific2_demographics.csv")
+df_keys <- read.csv("../data/prolific2/anonymisation_keys.csv")
+df_demo <- left_join(df_demo, df_keys, by = c("participant_id" = "prolific"))
+
+# filter only the ones used in the final sample
+ids_lowperf <- c(36, 46, 59, 80, 86, 96, 100, 101)
+ids_dataloss <- 104
+df_demo <- df_demo %>% filter(!(anonym %in% ids_lowperf) & !(anonym %in% ids_dataloss) & !is.na(anonym))
+
+mean(df_demo$age, na.rm=TRUE)
+sum(df_demo$Sex == "Female")
+median(df_demo$time_taken, na.rm=TRUE) / 60
+```
+
+
+# Data quality
+Reproduce and generate the data csv (walks_prolific2.csv and steps_prolific2.csv)
+by running `source("walks_join.R")`.
+
+```{r load_data, echo=TRUE}
+df_walks <- read.csv("../data_anonym/walks_prolific2.csv")
+#df_walks <- read.csv("../sim/sim_subjects_walks.csv")
+
+df_walks$A <- as.factor(df_walks$A)
+```
+
+
+Tree size should be normalized to zero mean. This is important for the regression coefficients.
+```{r}
+df_walks$B_scaled <- scale(df_walks$B)
+df_walks$H_scaled <- scale(df_walks$H)
+df_walks$walk_no_scaled <- scale(df_walks$walk_no)
+```
+
+```{r total_scores}
+relu <- function(x){ if(x < 0) 0 else x }
+total_scores <- group_by(df_walks, subjID, H, B, A) %>%
+  summarize(city_score = relu((mean(reward) - mean[1]) / (best_reward[1] - mean[1]))) %>%
+  group_by(subjID, A) %>%
+  summarize(total_score = mean(city_score))
+
+ggplot(total_scores, aes(x=total_score, color=A, fill=A)) +
+  geom_histogram(position="identity", alpha=.5, bins = 30) +
+  labs(title="Total scores (zero = random behaviour)", x="total score") +
+  theme_bw()
+```
+
+```{r filter_data, echo=TRUE}
+#tmp <- total_scores %>% group_by(A) %>% summarise(mean_score = mean(total_score), sd_score = sd(total_score))
+#tmp$mean_score - 2 * tmp$sd_score
+offset <- .2 # this is 2 sd below group means
+
+ids_lowperf <- as.vector(total_scores$subjID[total_scores$total_score < .2]) # cutoff at bimodality
+df_walks <- df_walks %>% filter(!(subjID %in% ids_lowperf) & (subjID != 104)) # subject 104 had saving issues
+df_walks %>% group_by(A) %>% summarise(n = n_distinct(subjID))
+```
+
+
+# Behavioural results
+
+## Performance
+Here I test a bunch of performance measures.
+Step-regret and score are not suited since they are bounded / clipped (0 < score < 1)
+such that residuals are non-Gaussian.
+Step-reward seems to be the best, with the best model having two interactions ($A*B$ and $A*H$).
+
+```{r test_performance, echo=TRUE, message=FALSE}
+df_walks$step_reward <- df_walks$reward / (df_walks$H - 1)
+# normalize step_reward by step-mean
+df_walks$norm_step_reward <- df_walks$step_reward - df_walks$mean / (df_walks$H-1)
+
+# pick one performance measure:
+perf <- "norm_step_reward" # "score", "step_regret"
+
+#m1 <- lmer(df_walks[,perf] ~ walk_no_scaled + A + B_scaled + H_scaled + (1|subjID), df_walks)
+m2 <- lmer(df_walks[,perf] ~ walk_no_scaled + A*B_scaled + A*H_scaled + (1|subjID), df_walks)
+#m3 <- lmer(df_walks[,perf] ~ walk_no_scaled + A*B_scaled + A*H_scaled + A*H_scaled*B_scaled + (1|subjID), df_walks)
+#screenreg(list(m1,m2,m3), single.row = TRUE) # model comparison
+#plot(m2) # plot residuals
+lmer_performance <- m2
+summary(lmer_performance)
+```
+
+```{r btest_performance, echo=FALSE, message=FALSE}
+#b1 <- brm(step_reward ~ walk_no + A + B_scaled + H_scaled + (1|subjID), df_walks)
+#b2 <- brm(step_reward ~ walk_no + A*B_scaled + A*H_scaled + (1|subjID), df_walks)
+#b3 <- brm(step_reward ~ walk_no + A*B_scaled + A*H_scaled + A*B_scaled*H_scaled + (1|subjID), df_walks)
+#plot_model(b2)
+#brm_performance <- b2
+```
+
+
+```{r plot_performance, fig.width=4, fig.height=3, echo=FALSE}
+df_performance <- group_by(df_walks, A, walk_no) %>%
+  summarise(norm_step_reward_m = mean(norm_step_reward), norm_step_reward_sem = sd(norm_step_reward)/sqrt(n()))
+
+# PLOT by alpha
+p1 <- ggplot(df_performance, aes(x=walk_no, y=norm_step_reward_m, color=A)) +
+  geom_line() +
+  #geom_ribbon(aes(ymin=score_m-score_sem, ymax=score_m+score_sem, fill=A), alpha=.2, colour=NA) +
+  geom_ribbon(aes(ymin=norm_step_reward_m-norm_step_reward_sem, ymax=norm_step_reward_m+norm_step_reward_sem, fill=A),
+              alpha=.2, colour=NA) +
+  geom_hline(aes(yintercept=0), linetype = "dashed") +
+  labs(title = "Reward", y = "reward per step (normalized)", x = "# walk") + #fill = "corr.", color = "corr.") +
+  scale_x_continuous(breaks = c(5,10,15), labels = c(5,10,15)) +
+  theme_classic() +
+  theme(legend.position = "none") # c(.8,.3))
+
+p2 <- plot_model(lmer_performance, bpe = "mean", bpe.style = "dot", bpe.color='black', show.values = TRUE,
+                 vline.color = 'grey', colors = "black", value.offset = .5, value.size = 3) +
+  theme_classic() +
+  #scale_x_discrete(labels= rev(c('# walk', 'corr.', 'breadth', 'height', 'corr. * breadth', 'corr. * height'))) +
+  scale_x_discrete(labels= rev(c('# walk', 'A', 'B', 'H', 'A * B', 'A * H'))) +
+  labs(title='', y=TeX("$\\hat{\\beta}$"))
+
+p1 + p2 #inset_element(p2, .55,.01,.95,.55)
+```
+
+## Exploration
+Exploration is measured by path distance between consecutive walks.
+
+```{r test_exploration, echo=TRUE, message=FALSE}
+#m1 <- lmer(path_dist ~ walk_no + A + B_scaled + H_scaled + (1|subjID), df_walks)
+m2 <- lmer(path_dist ~ walk_no_scaled + A*B_scaled + A*H_scaled + (1|subjID), df_walks)
+#m3 <- lmer(path_dist ~ walk_no + A*B_scaled + A*H_scaled + A*H_scaled*B_scaled + (1|subjID), df_walks)
+#screenreg(list(m1,m2,m3), single.row = TRUE) # model comparison
+#plot(m2) # plot residuals
+lmer_exploration <- m2
+summary(lmer_exploration)
+```
+
+```{r plot_exploration, fig.width=4, fig.height=3, echo=FALSE}
+df_pathdist <- group_by(df_walks, A, walk_no) %>%
+  summarise(path_dist_m = mean(na.omit(path_dist)),
+            path_dist_s = sd(na.omit(path_dist) / sqrt(n())))
+
+df_pathdist$A <- as.factor(df_pathdist$A)
+p3 <- ggplot(df_pathdist, aes(x=walk_no, y=path_dist_m, color=A)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=path_dist_m-path_dist_s, ymax=path_dist_m+path_dist_s, fill=A), color=NA, alpha=.2) +
+  labs(title = "Exploration", x = "# walk", y = "distance between paths") +
+       #color = "corr.", fill = "corr.") +
+  scale_x_continuous(breaks = c(5,10,15), labels = c(5,10,15)) +
+  theme_classic() +
+  theme(legend.position = c(.8,.8))
+
+p4 <- plot_model(lmer_exploration, bpe = "mean", bpe.style = "dot", bpe.color='black', show.values = TRUE,
+                 vline.color = 'grey', colors = "black", value.offset = .5, value.size = 3) +
+  theme_classic() +
+  #scale_x_discrete(labels= rev(c('# walk', 'corr.', 'breadth', 'height', 'corr. * breadth', 'corr. * height')))+
+  scale_x_discrete(labels= rev(c('# walk', 'A', 'B', 'H', 'A * B', 'A * H'))) +
+  ylim(-2,3) +
+  labs(title='', y=TeX("$\\hat{\\beta}$"))
+
+p3 + p4
+```
+
+
+
+## Planning
+Planning is measured by how many walks were greedy w.r.t. the next node only (node greediness) versus the whole path (path greediness).
+
+Because node and path greediness are the same for 1-step paths, we exclude these (i.e. only use $H>2$).
+```{r}
+df_steps <- read.csv("../data/prolific2/steps_prolific2.csv")
+#df_steps <- read.csv("../sim/sim_subjects_steps.csv")
+
+df_steps <- filter(df_steps, !(subjID %in% ids_lowperf) & (subjID != 104))
+df_steps <- filter(df_steps, H > 2) # don't take 1-step decisions
+df_steps$A <- as.factor(df_steps$A)
+df_steps$B_scaled <- as.numeric(scale(df_steps$B))
+df_steps$H_scaled <- as.numeric(scale(df_steps$H))
+df_steps$walk_no_scaled <- scale(df_steps$walk_no)
+df_steps$step_no_scaled <- scale(df_steps$step_no)
+```
+
+Correct for baseline reward per layer:
+```{r}
+# random baseline
+df_layer_stats <- read.csv("../study/trees/layer_stats.csv")
+df_layer_stats$layer <- df_layer_stats$layer - 1 # recode layer = step + 1
+df_layer_stats <- df_layer_stats %>% rename(layer_m = reward_m, layer_s = reward_s, step_no = layer)
+df_layer_stats$A <- as_factor(df_layer_stats$A)
+
+df_layer_stats$layer_s[which(df_layer_stats$layer_s == 0)] <- 1 # to prevent div_by_zero in zscoring (zscore = 0)
+
+df_steps <- left_join(df_steps, df_layer_stats, by = c("H", "B", "A", "v", "step_no"))
+
+# correct with baseline
+df_steps$norm_node_reward <- (df_steps$node_reward - df_steps$layer_m) / df_steps$layer_s
+```
+
+Fit regressions:
+```{r test_planning, echo=TRUE, message=FALSE}
+#m1 <- lmer(node_reward ~ walk_no + A + B_scaled + H_scaled + step_no + (1|subjID), df_steps)
+m2 <- lmer(norm_node_reward ~ walk_no_scaled + A + B_scaled + H_scaled + step_no_scaled + step_no_scaled*A + (1|subjID), df_steps)
+#m3 <- lmer(norm_node_reward ~ walk_no + A + B_scaled + H_scaled + step_no + step_no*A + step_no*B_scaled + step_no*H_scaled + (1|subjID), df_steps)
+#screenreg(list(m1,m2,m3), single.row = TRUE) # model comparison
+#plot(m2) # plot residuals
+lmer_planning <- m2
+summary(lmer_planning)
+```
+
+```{r plot_planning, fig.width=4, fig.height=3, echo=FALSE}
+df_steps_m <- df_steps %>%
+  group_by(A, step_no) %>% # H
+  summarise(norm_node_reward_m = mean(norm_node_reward),
+            norm_node_reward_s = sd(norm_node_reward) / sqrt(n()))
+
+df_steps_m$A <- as.factor(df_steps_m$A)
+#df_steps_m$H <- as.factor(df_steps_m$H)
+
+p5 <- ggplot(df_steps_m, aes(x = step_no, y = norm_node_reward_m)) +
+  geom_line(aes(color = A)) + #, linetype = )) +
+  geom_ribbon(aes(ymin = norm_node_reward_m-norm_node_reward_s, ymax = norm_node_reward_m+norm_node_reward_s, fill=A),
+              color=NA, alpha=.2) +
+  geom_hline(aes(yintercept=0), linetype = "dashed") +
+  scale_x_discrete(labels = as.character(1:3), limits = as.character(1:3)) +
+  labs(x = "# step", y = "reward per step (normalized)", title = "Planning") +
+       # color = "corr.", fill = "corr.") +
+  theme_classic() +
+  theme(legend.position = "none") # c(.25,.8))
+
+
+p6 <- plot_model(lmer_planning, bpe = "mean", bpe.style = "dot", bpe.color='black', show.values = TRUE,
+                 vline.color = 'grey', colors = "black", value.offset = .5, value.size = 3) +
+  theme_classic() +
+  scale_x_discrete(labels= rev(c('# walk', 'A', 'B', 'H', '# step', '# step\n * A'))) +
+  ylim(-6, 6) +
+  labs(title='', y=TeX("$\\hat{\\beta}$"))
+
+
+p5 + p6
+```
+
+
+```{r joint_fig_wide, fig.width=9, fig.height=3, echo=FALSE}
+(p1 + labs(tag = "a")) | p2 | (p3 + labs(tag = "b")) | p4 | (p5 + labs(tag = "c")) | p6
+```
+
+```{r joint_fig_long, fig.width=4, fig.height=9, echo=FALSE}
+((p1 + labs(tag = "a")) | p2) / ((p3 + labs(tag = "b")) | p4) / ((p5 + labs(tag = "c")) | p6)
+```
+
+## Reaction times
+
+```{r test_rt, echo=TRUE, message=FALSE}
+m1 <- lmer(node_rt ~ walk_no_scaled + A + B_scaled + H_scaled + (1|subjID), df_steps)
+m2 <- lmer(node_rt ~ walk_no_scaled + A*B_scaled + A*H_scaled + (1|subjID), df_steps)
+m3 <- lmer(node_rt ~ walk_no_scaled + A*B_scaled + A*H_scaled + A*H_scaled*B_scaled + (1|subjID), df_steps)
+screenreg(list(m1,m2,m3), single.row = TRUE) # model comparison
+plot(m3) # plot residuals
+m_best <- m2
+```
+
+
+```{r plot_reaction_times, fig.width=6, fig.height=3, echo=FALSE}
+df_steps_m <- group_by(df_steps, H, A, step_no) %>%
+  summarise(node_rt_m = mean(node_rt),
+            node_rt_s = sd(node_rt) / sqrt(n()))
+
+df_steps_m$A <- as.factor(df_steps_m$A)
+df_steps_m$H <- as.factor(df_steps_m$H)
+
+p7 <- ggplot(df_steps_m, aes(x = step_no, y = node_rt_m)) +
+  #geom_point(aes(size = H, shape = B, color = A)) +
+  geom_line(aes(linetype = H, color = A)) +
+  #geom_ribbon(aes(ymin = node_reward_m-node_reward_s, ymax = node_reward_m+node_reward_s, fill=A),
+  #            color=NA, alpha=.2) +
+  labs(x = "# step", y = "node reaction time [ms]") +
+  scale_x_discrete(labels = as.character(1:3), limits = as.character(1:3)) +
+  theme_classic()
+
+p8 <- plot_model(m_best, bpe = "mean", bpe.style = "dot", bpe.color='black', show.values = TRUE,
+                 vline.color = 'grey', colors = "black", value.offset = .5, value.size = 3) +
+  theme_classic() +
+  scale_x_discrete(labels= rev(c('# walk', 'corr.', 'breadth', 'height', 'corr. * breadth', 'corr. * height')))+
+  labs(title='', y='beta estimate')
+  
+
+p7 + p8
+```
+
+```{r}
+# df_greedyness <- 
+# ggplot(df_greedyness, aes(x=walk_no, y=path_greedy_m, color=A)) + geom_line() +
+#   facet_grid(H~B, labeller = label_both) +
+#   labs(title = "Path greedyness") + theme_bw()
+```
+
+
+

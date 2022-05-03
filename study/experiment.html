@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Roulecity - Experiment</title>
+        
+        <link rel="shortcut icon" href="./img/favicon.png">
+        <link rel="stylesheet" href="./css/study.css"> 
+
+        <!-- load libraries -->
+        <script src="./lib/d3.v4.js"></script>
+        <script src="./lib/jquery-3.5.1.min.js"></script>
+        
+        <script src="./js/roulecity.js"></script>
+        <script src="./js/datadump.js"></script>
+
+        <script>
+          window.onload = function(){
+            mode = "exp";
+            condition = parseInt(document.location.search.split("a=")[1][0]); // 0 or 1
+            city_list = exp_city_list(condition);
+            city_max = 9; //27;
+            init_svg(d3.select("#city"));
+            init_city(d3.select("#city"));
+          };
+          
+          function nextHTML(){
+            window.location.href = './finish.html' + window.location.search;
+          }
+        </script>
+    </head>
+    <body>
+      <div class="container">
+        
+        <h1>Roulecity - Experiment</h1>
+        <i>This is the real experiment. Collect as many points as you can, they will count for your bonus!<br>
+        Please make sure you <b>scroll and zoom out to always see the full city</b>, if you have a small screen!
+        <!--There are 27 cities to explore and again you have 15 walks per city.-->
+        </i><br>
+        <br>
+        
+        <svg id="bars">
+        </svg>
+  
+        <svg id="city">
+          <g class="roulette"></g>
+          <g class="tree"></g>
+          <g class="counter"></g>
+        </svg>
+        
+    <!-- modal for feedback after each city -->
+    <div class="modal">
+      <div class="modal-content">
+        <p id="feedback"></p>
+        <button onclick="hide_feedback();">Fly to the next city</button>
+      </div>
+    </div>
+  </div>  
+</body>

@@ -1,0 +1,2 @@
+
+dplyr, tidyverse, patchwork, ggsignif, latex2exp, brms, lme4, lmerTest, texreg, sjPlot, performance, jsonlite, igraph, colorspace, ggplot2, shiny, DEoptim, nloptr, extraDistr

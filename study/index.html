@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Roulecity - Welcome</title>
+        
+        <link rel="shortcut icon" href="./img/favicon.png">
+        <link rel="stylesheet" href="./css/study.css">
+        
+        <script>
+          // read query from URL and store it locally, it has the form:
+          // url_IDs = workerID=...&assignmentID=...
+          var url_IDs = window.location.search.split("?")[1];
+          
+          // if not coming from Prolific, create an artificial ID
+          if(url_IDs === "" || url_IDs == undefined){
+            alert("You are entering this study without coming from Prolific. " +
+              "You can still do it, but you will not be paid for it.");
+            workerID = Math.round(Math.random()*100000);
+            window.location = window.location + "?a=1&workerID=" + workerID + "&assignmentID=1&sessionID=1";
+          }
+          
+          function consent(){
+            var A = window.location.search.split("a=")[1][0];
+            window.location = './instructions' + A + '.html' + window.location.search;
+          }
+        </script>
+    </head>
+    <body>
+      <div class="container">
+      <h1>Welcome to our online study on decision making</h1>
+      
+      This study is part of a research project conducted
+      by the <a href="http://cpilab.org/" target="_blank">Computational Principles of Intelligence Group</a>
+      at the Max Planck Institute for Biological Cybernetics in Tuebingen, Germany.<br><br>
+      
+      <!-- images of town + Institute here-->
+      <span>
+        <img src="./img/tuebingen.jpg" height="300px">
+        <img src="./img/mpi.jpg" height="300px">
+        <figcaption>By Rabe! - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=33554043</figcaption>
+      </span>
+      <br>
+      Your job will be to play an easy and fun game that we call <b>Roulecity</b>.<br>
+      
+      To be eligible to participate, you MUST meet the following criteria:
+      <ul>
+      <li>18 years of age or older.</li>
+      <li>Fluent speaker of English.</li>
+      <li>Have not previously participated in this experiment.</li>
+      </ul>
+      <br>
+      <b>Please use a device with a mouse or touchpad.
+      Please do not do this study if you are using a touch screen! It will not work!</b>
+      
+      <h2>Details</h2>
+      <h3>How much time will it take and how much can you earn?</h3>
+      The study will take <b>10-15 minutes</b>.<br>
+      You will be paid £ 1.50 for participation plus a bonus of up to £ 3.00 depending on your performance.<br>
+      Hence, the <b>expected payment is something around £ 3.00 to £ 4.50</b>.
+
+      <h3>Confidentiality</h3>
+      Your participation in this study will remain confidential.
+      Your Prolific worker ID will NOT be shared with anyone outside the research team.
+
+      <h3>Participation and withdrawal</h3>
+      Your participation in this study is completely voluntary and you may refuse to participate<br>
+      or you may choose to withdraw at any time.<br>
+      However, you will only be paid for the participation upon completion<br>
+      and if you enter the correct completion code to Prolific (provided at the end of the study).
+
+      <h3>How to contact the researchers</h3>
+      If you have questions or concerns about your participation or payment
+      or want to request a summary of research findings,
+      please email the <a href="mailto:cpilab@tuebingen.mpg.de">researcher</a>
+      or the <a href="mailto:eric.schulz@tuebingen.mpg.de">principal investigator</a> (Dr. Eric Schulz).
+
+      
+      <h2>Data protection</h2>
+      Your data will be anonymized and only used in the manner described in our data protection sheet,
+      available <a href="https://kyblab.tuebingen.mpg.de/roulecity/data_protection.pdf" target="_blank">here</a> 
+      (please do not fill out this sheet!).
+      The following text box summarizes the main points. Please read it carefully and provide consent below:<br>
+      <br>
+      
+      <textarea rows="10" cols="80" readonly>
+The processing and use of the collected data occurs in a pseudoanonymized form within the scope of the legally prescribed provisions.
+As a general rule, the storage occurs in the form of answered questionnaires, as well as electronic data, for a duration of 10 years or longer, if this is required by the purpose of the study.
+
+By providing of further personal data in pseudoanonymized form, collected personal data may be used for the preparation of anonymized
+scientific research work and may also be published and used in an anonymized form in medical journals and scientific publications, so that a direct assignment to my person cannot be established.
+
+The information obtained during the course of this study may also be sent in an anonymized form to cooperation partners within the scope of
+the European General Data Protection Regulation for scientific purposes and to cooperation partners outside of the European Union, i.e. to countries with a lower data protection level (this also applies to the USA).
+
+The data collected within the scope of the study can also be used and processed in the future inside of the Max Planck Institute.
+
+I was informed about my rights, that at any time:
+
+I can withdraw this declaration of consent.
+
+I can request information about my stored data and request the correction or blocking of data.
+
+By cancellation of my participation in the study,
+I can request that any personal data of mine collected until that point are immediately deleted or anonymized.
+
+I can request that my personal data are handed out to me or to third parties (if technically feasible).
+
+I herewith declare that:
+
+I have been adequately informed about the collection and processing of my personal data and rights.
+
+I consent to the collection and processing of personal data within the scope of the study and its pseudoanonymized disclosure,
+so that only the persons conducting the study can establish a link between the data and my person.
+
+Agreement:
+
+I agree to participate in this experiment.
+
+I consent to the use of my data described in the Data Protection Information Sheet
+and confirm having received a copy of the Data Protection Sheet.
+
+I consent to data transfer from the MPI for Biological Cybernetics encrypted database to the project-related collaborators:
+inside of the Max Planck Society and affiliated research institutes, or at partnering institutions like the University of Tuebingen.
+      </textarea>      
+      
+      <br>
+      <br>
+      By selecting the consent option below,
+      you acknowledge that you fulfill all of the participation criteria
+      and you agree to your data being used as described.
+      <br>
+      <br>
+      
+      <button type="submit" onclick="consent();">
+        Consent
+      </button>
+      
+    </div>     
+    </body>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Roulecity - Tutorial</title>
+        
+        <link rel="shortcut icon" href="./img/favicon.png">
+        <link rel="stylesheet" href="css/study.css"> 
+
+        <!-- load libraries -->	
+        <script src="./lib/d3.v4.js"></script>
+        <script src="./lib/jquery-3.5.1.min.js"></script>
+        
+        <script src="./js/roulecity.js"></script>
+        <script src="./js/datadump.js"></script>
+
+        <script>
+          
+          // advance section in tutorial
+          // after the first 3 walks in the first city
+          var section = 0;
+          function nextSection(){
+            document.getElementById("div" + ++section).style.display = "block";
+            var svg = document.getElementById("city")
+            svg.style.backgroundColor = "#eee";
+            svg.style.pointerEvents = "none";
+            window.scrollTo(0, 0);
+          }
+          
+          function tryIt(){
+            document.getElementById("div" + section).style.display = "none";
+            var svg = document.getElementById("city")
+            svg.style.backgroundColor = "#fff";
+            svg.style.pointerEvents = "auto";
+          }
+          
+          // once the tutorial cities are finished
+          function showQuiz(){
+            // reveal questions and scroll to them
+            document.getElementById("quiz").style.display = "block";
+            window.scrollBy(0, 800);
+          }
+          
+          // for checking user answers
+          function check(){
+            var a1 = document.querySelector('input[name="q1"]:checked').value;
+            var a2 = document.querySelector('input[name="q2"]:checked').value;
+            var a3 = document.querySelector('input[name="q3"]:checked').value;
+            var a4 = document.querySelector('input[name="q4"]:checked').value;
+            var a5 = document.querySelector('input[name="q5"]:checked').value;
+            
+            if(a1 == 2 && a2 == 1 && a3 == 2 && a4 == 2 && a5 == 3){ // if all answers are correct
+              // store how often compcheck was failed and advance to experiment
+              dump_tmp_and_advance("compcheck2_failed", compcheck2_failed);
+            } else{
+              compcheck2_failed += 1;
+              d3.select('#quiz_modal').style('display', 'block');
+            }
+          }
+              
+          function nextHTML(){
+            window.location.href = './experiment.html' + window.location.search;
+          }
+          
+          window.onload = function(){
+            mode = "tut";
+            var A = window.location.search.split("a=")[1][0];
+            city_list = tut_city_list(A);
+            city_max = 3;
+            init_svg(d3.select("#city"));
+            init_city(d3.select("#city"));
+            
+            // init
+            nextSection(); // call once for the first
+          };
+          
+          window.onclick = function(event) {
+            if (event.target == d3.select('.modal')) {
+              modal.style.display = "none";
+            }
+          }
+        </script>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Roulecity - Tutorial</h1>
+        <p id="instruct" style="font-style:italic">
+        Please follow the instructions below. The tutorial will automatically proceed with the next step.<br>
+        If you want to start the tutorial again, click <a href="./tutorial.html">here</a>.
+        </p>
+        <br>
+        <br>
+        
+        <div id="div1" class="tut_div">
+          In this tutorial, you can practice the game in 3 cities of different sizes.<br>
+          You always start from the central station and walk towards the outskirts<br>
+          <b>by clicking on one of the hubs with the blue border</b>.<br>
+          In each hub, you collect all the energium you can get.<br>
+          Once you arrive at the outskirts of the city, you will automatically return to your spaceship.<br>
+          There you will see how many energium units you collected <b>in sum</b> on the walk.<br>
+          <br>
+          <i>Click on one of the blue circles to walk down a path!</i>
+          <br><br>
+          <button onclick="tryIt();">Try it!</button>
+        </div>
+        
+        <div id="div2" class="tut_div">
+          You will have <b>15 walks</b> in each city.<br>
+          This may feel a lot for small cities, while you can only explore a small fraction in larger cities.<br>
+          The blue text on the top left shows you how many cities you have left to explore and how many walks are left in this city.<br>
+          You walk only once a day, so there is enough time for the hubs to fully recharge the energium units overnight.<br>
+          This means, <b>if you visit the same hub twice, the hub will give you a similar number of energium.</b><br>
+          Sticking to the same path can be useful if you think you have found the best one.<br>
+          However, you might overlook better paths if you don't explore enough at the beginning.<br>
+          <br>
+          <i>Walk down the same path again!</i>
+          <br><br>
+          <button onclick="tryIt();">Try it!</button>
+        </div>
+        
+        <div id="div3" class="tut_div">
+          At each visited hub you <b>only see the amount of energium you got the previous time.</b><br>
+          This number is stable across multiple days, but there may be <b>minor fluctuations</b>.<br>
+          To see the history of all previous amounts (not just the last one),<br>
+          <b>you can hover the mouse pointer over any visited hub.</b><br>
+          <br>
+          <i>Try and hover your mouse over the hubs you have visited! Then continue walking a new path.</i>
+          <br><br>
+          <button onclick="tryIt();">Try it!</button>
+        </div>
+        
+        <div id="div4" class="tut_div">
+          After your 15 walks, <b>you will be shown how well you did as a percentage.</b><br>
+          This is relative to the worst and best possible walk in the city (0% = worst, 100% = best).<br>
+          <br>
+          In this tutorial, it doesn't matter how many units of energium you collect.<br>
+          <b>Just make sure you understand the game</b>.<br>
+          In the real experiment, your bonus will depend on how well you did.<br>
+          Specifically, the <b>performance scores from all cities will be averaged</b>.<br>
+          The maximum bonus you can get is £ <script>document.write(max_bonus.toString());</script>.00.<br>
+          <br>
+          <i>Please finish the remaining walks in the 3 cities now.
+          After you are done, there will be a few questions.</i>
+          <br><br>
+          <button onclick="tryIt();">Try it!</button>
+        </div>
+  
+        <br>
+  
+        <svg id="city">
+          <g class="roulette"></g>
+          <g class="tree"></g>
+          <g class="counter"></g>
+        </svg>
+        
+        <div id="quiz">
+          <h2>Almost there...</h2>
+          Thanks for completing the tutorial.<br>
+          Now, please answer the following questions. Only if you get all of them correct, you can go on.<br>
+          If you want to start the tutorial again, click <a href="./tutorial.html">here</a>.
+          <br>
+          
+          <div class="question">
+            <b>What is your task in this game?</b><br>
+            <input type="radio" id="q1a" name="q1" value="1">
+            <label for="q1a">to find the hub with the most energium</label><br>
+            <input type="radio" id="q1b" name="q1" value="2">
+            <label for="q1b">to collect as much energium as possible in each city</label><br>
+            <input type="radio" id="q1c" name="q1" value="3">
+            <label for="q1c">to visit as many hubs as you can so to find out about their energium units</label><br>
+          </div>
+          
+          <div class="question">
+            <b>In which direction(s) can you walk?</b><br>
+            <input type="radio" id="q2a" name="q2" value="1">
+            <label for="q2a">outwards from the center</label><br>
+            <input type="radio" id="q2b" name="q2" value="2">
+            <label for="q2b">both outwards and inwards</label><br>
+            <input type="radio" id="q2c" name="q2" value="3">
+            <label for="q2c">to neighbouring hubs in the same district</label><br>
+          </div>
+          
+          <div class="question">
+            <b>What do the pop-ups tell you when you hover your mouse over a hub?</b><br>
+            <input type="radio" id="q3a" name="q3" value="1">
+            <label for="q3a">a list of potential energium amounts, one of which you will get when clicking there</label><br>
+            <input type="radio" id="q3b" name="q3" value="2">
+            <label for="q3b">how much energium you received on previous visits to this hub</label><br>
+            <input type="radio" id="q3c" name="q3" value="3">
+            <label for="q3c">how much energium you collected on your walk until this point</label><br>
+          </div>
+          
+          <div class="question">
+            <b>How will your bonus be calculated?</b><br>
+            <input type="radio" id="q4a" name="q4" value="1">
+            <label for="q4a">by the absolute amount of energium you collected</label><br>
+            <input type="radio" id="q4b" name="q4" value="2">
+            <label for="q4b">using the performance score averaged over all cities (relative to the best possible score)</label><br>
+            <input type="radio" id="q4c" name="q4" value="3">
+            <label for="q4c">you will only get a bonus if you find the best path in each city</label><br>
+          </div>
+          
+          <div class="question">
+            <b>Which of these statements is true?</b><br>
+            <input type="radio" id="q5a" name="q5" value="1">
+            <label for="q5a">what you learned about the best locations of one city, you can use in another</label><br>
+            <input type="radio" id="q5b" name="q5" value="2">
+            <label for="q5b">if you visit a hub too often, there will be less energium on it</label><br>
+            <input type="radio" id="q5c" name="q5" value="3">
+            <label for="q5c">the average energium units stay stable over multiple visits of the same hub</label><br>
+          </div>
+      
+          <div>
+            <button type="submit" onclick="check();">Next</button>
+          </div>
+          
+        </div>
+   
+    <!-- modal for feedback after each city -->
+    <div id="city_modal" class="modal">
+      <div class="modal-content">
+        <!-- <span class="close" onclick="hide_feedback();">&times;</span> -->
+        <p id="feedback"></p>
+        <button onclick="hide_feedback();">Fly to the next city</button>
+      </div>
+    </div>
+    
+    <!-- modal for failed comprehension check -->
+    <div id="quiz_modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="d3.select('#quiz_modal').style('display', 'none');">&times;</span>
+        <p>Some of the answers are missing or not correct, please try again.</p>
+      </div>
+    </div>
+    
+  </div>
+</body>

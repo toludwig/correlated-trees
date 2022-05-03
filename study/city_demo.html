@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Roulecity - City demo</title>
+
+    <link rel="shortcut icon" href="./img/favicon.png">
+    <link rel="stylesheet" href="./css/study.css"> 
+
+    <!-- load libraries -->	
+    <script src="./lib/d3.v4.js"></script>
+    <script src="./lib/jquery-3.5.1.min.js"></script>
+    
+    <script src="./js/roulecity.js"></script>
+    <script src="./js/datadump.js"></script>
+    
+    <script>
+      
+      window.onload = function(){
+        mode = "demo";
+        init_svg(d3.select("#city"));
+        init_city(d3.select("#city"));
+      };
+          
+      function button(noiseflag){ 
+        init_city(d3.select('#city'), noiseflag); 
+        // delete all previous tree components
+        d3.selectAll(".tree > *").remove();
+      }
+    </script>
+  </head>
+  
+  <body>
+    
+  <div class="container">
+    <h1>Roulecity - City demo</h1>
+    This demo shows all the cities presented in the study.<br>
+    Each set of parameters has 10 different prior versions.<br>
+    
+    <form id="manual">
+      <label for='H'>Depth</label> 
+      <select id='H'>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+      <label for='B'>Branching factor</label>
+      <select id='B'>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+      <label for='A'>Alpha</label>
+      <select id='A'>
+        <option value="0">0</option>
+        <option value="0.5">0.5</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+      </select>
+      <label for='v'>Version</label>
+      <select id='v'>
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+      </select>
+      
+      <button type='button' onclick="button(false);">Prior</button>
+      <button type='button' onclick="button(true);">+ Noise</button>
+    </form>
+    
+    <p>Path statistics:<br>
+        worst path = <span id="worst_path"></span><br>
+        best path = <span id="best_path"></span><br>
+        avg path = <span id="avg_path"></span><br>
+        sd path = <span id="sd_path"></span><br>
+    </p>
+    
+    <svg id="city">
+      <g class="roulette"></g>
+      <g class="tree"></g>
+      <g class="counter"></g>
+    </svg>
+    
+  </div>
+  
+  </body>
+</html>
