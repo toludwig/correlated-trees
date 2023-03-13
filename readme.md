@@ -1,7 +1,7 @@
 Correlated Trees
 ==================
 
-Code for [Ludwig, Wu & Schulz, 2022](TODO insert link) 
+Code for [Ludwig, Wu & Schulz, 2022](https://psyarxiv.com/72wda) 
 where we studied __Exploration, Generalization, and Planning in Correlated Trees__.
 
 ## Correlated Trees
